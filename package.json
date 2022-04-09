@@ -1,0 +1,14 @@
+{
+  "name": "spotify-migrator",
+  "author": "Andrey Grigoryev",
+  "version": "0.0.0",
+  "description": "Application that extracts data from Spotify",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^0.26.1"
+  },
+  "license": "MIT"
+}
