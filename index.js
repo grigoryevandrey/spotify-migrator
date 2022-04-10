@@ -1,104 +1,106 @@
+const fs = require('fs');
 const axios = require('axios');
+
+const clientId = process.env.CLIENT_ID;
+const clientSecret = process.env.CLIENT_SECRET;
 
 const accessToken = process.env.ACCESS_TOKEN;
 
-const getToken = async () => {
-  const options = {
-    url: 'https://accounts.spotify.com/api/token',
-    headers: {
-      Authorization:
-        'Basic ' + new Buffer(clientId + ':' + clientSecret).toString('base64'),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    params: {
-      grant_type: 'client_credentials',
-    },
-    method: 'POST',
-  };
-
+const handleAsyncOperation = async (options) => {
   try {
     const response = await axios(options);
 
-    return response?.data?.access_token;
+    return response?.data;
   } catch (e) {
     throw new Error(
-      `Can not get token, error: ${e?.response?.data?.error}, status: ${e?.response?.status}`,
+      `Can not fetch url ${options?.url}, error: ${JSON.stringify(
+        e?.response?.data?.error,
+      )}, status: ${e?.response?.status}`,
     );
   }
 };
 
-const getSongsFromPlaylist = async () => {
+const getSongs = async (playlistId, offset = 0) => {
   const options = {
-    url: 'https://api.spotify.com/v1/playlists/6L5dRyWN6YWGJU2UFFntgP/tracks?offset=1000&limit=100',
+    url: `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=100`,
     headers: {
       Authorization: 'Bearer ' + accessToken,
     },
   };
 
-  const response = await axios(options);
+  const response = await handleAsyncOperation(options);
 
-  console.log(Object.keys(response?.data));
-  console.log(response?.data?.items?.length);
-  console.log(response?.data?.items[0]);
-  // console.log(response?.data?.items);
+  return response?.items?.map((song) => {
+    Reflect.deleteProperty(song.track.album, 'available_markets');
+    Reflect.deleteProperty(song.track, 'available_markets');
+
+    return song;
+  });
+};
+
+const extractSongsFromPlaylist = async (playlistId) => {
+  let songs = await getSongs(playlistId);
+
+  let offset = 100;
+
+  const totalSongs = [...songs];
+
+  while (songs.length > 0) {
+    songs = await getSongs(playlistId, offset);
+
+    offset += 100;
+
+    totalSongs.push(...songs);
+  }
+
+  return totalSongs;
 };
 
 const getPlaylists = async () => {
   const options = {
-    url: 'https://api.spotify.com/v1/me/playlists?limit=20',
+    url: 'https://api.spotify.com/v1/me/playlists?limit=50',
     headers: {
       Authorization: 'Bearer ' + accessToken,
     },
   };
 
-  const response = await axios(options);
+  const response = await handleAsyncOperation(options);
 
-  console.log(response.data.items.length);
-  return response.data.items;
-  console.log(Object.keys(response.data));
-  console.log(response.data.items);
+  return response?.items;
 };
 
 const processing = async () => {
-  // const token = await getToken();
+  const library = {};
 
   const playlists = await getPlaylists();
 
-  console.log(playlists);
+  for (const playlist of playlists) {
+    const { name, id } = playlist;
 
-  // const songs = await getSongsFromPlaylist();
+    console.log(`Extracting playlist ${name}...\n`);
+
+    const songs = await extractSongsFromPlaylist(id);
+
+    const key = `${name}_${id}`.replace(/[ +-]/gim, '_');
+
+    library[key] = songs;
+
+    console.log(
+      `Extracted ${songs?.length || 0} songs from ${name} playlist.\n`,
+    );
+  }
+
+  for (key in library) {
+    const formatted = JSON.stringify(library[key]);
+    const path = `${__dirname}/extracted/${key}_${Date.now()}.json`;
+
+    fs.writeFile(path, formatted, (err) => {
+      if (err) {
+        console.error(err);
+        console.error('Error writing result...');
+      }
+    });
+  }
 };
 
 processing();
-
-// request.post(authOptions, function (error, response, body) {
-//   if (!error && response.statusCode === 200) {
-//     // use the access token to access the Spotify Web API
-//     const token = body.access_token;
-//     const options = {
-//       url: 'https://api.spotify.com/v1/users/fe28bu2f6fe2ymuqy0vb6wez0',
-//       headers: {
-//         Authorization: 'Bearer ' + token,
-//       },
-//       json: true,
-//     };
-
-//     request.get(options, function (error, response, body) {
-//       console.log(body);
-
-//       const options = {
-//         url: 'https://api.spotify.com/v1/me/albums',
-//         headers: {
-//           Authorization:
-//             'Bearer ' +
-//             'BQB4wAjVcp0CEdW_l0o6Cq9qYoYVN7qQ7AlWUtfBeRUajwPC9mWV2SbmnfV4HTQHASMqdKVp85',
-//         },
-//         json: true,
-//       };
-
-//       request.get(options, (err, res, body) => {
-//         console.log(body);
-//       });
-//     });
-//   }
-// });
