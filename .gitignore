@@ -1,4 +1,5 @@
 node_modules/
 dump/
 extracted/
+!extracted/.gitkeep
 .env
