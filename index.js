@@ -124,7 +124,7 @@ const processing = async () => {
 
   const savedTracks = await getSavedTracks();
 
-  console.log(`Saved tracks total: ${savedTracks.length}`);
+  console.log(`Extracted ${savedTracks.length} songs from Liked tracks.`);
 
   library.Liked_Tracks = savedTracks;
 
