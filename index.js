@@ -66,6 +66,41 @@ const getPlaylists = async () => {
   return response?.items;
 };
 
+const fetchSavedTracks = async (offset = 0) => {
+  const options = {
+    url: `https://api.spotify.com/v1/me/tracks?offset=${offset}&limit=50`,
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+    },
+  };
+
+  const response = await handleAsyncOperation(options);
+
+  return response?.items?.map((song) => {
+    Reflect.deleteProperty(song.track.album, 'available_markets');
+    Reflect.deleteProperty(song.track, 'available_markets');
+
+    return song;
+  });
+};
+
+const getSavedTracks = async () => {
+  let songs = await fetchSavedTracks();
+  let offset = 50;
+
+  const totalSongs = [...songs];
+
+  while (songs.length > 0) {
+    songs = await fetchSavedTracks(offset);
+
+    offset += 50;
+
+    totalSongs.push(...songs);
+  }
+
+  return totalSongs;
+};
+
 const processing = async () => {
   const library = {};
 
@@ -86,6 +121,12 @@ const processing = async () => {
       `Extracted ${songs?.length || 0} songs from ${name} playlist.\n`,
     );
   }
+
+  const savedTracks = await getSavedTracks();
+
+  console.log(`Saved tracks total: ${savedTracks.length}`);
+
+  library.Liked_Tracks = savedTracks;
 
   for (key in library) {
     const formatted = JSON.stringify(library[key]);
